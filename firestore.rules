@@ -1,0 +1,99 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: {userId}
+    // Fields:
+    //   - uid: string (required, immutable)
+    //   - email: string (required)
+    //   - settings: map (optional)
+    //   - unlockedAchievements: list (optional)
+    //   - createdAt: number (required, immutable)
+    //   - updatedAt: number (optional)
+    //
+    // Collection: records
+    // Document ID: {recordId}
+    // Fields:
+    //   - uid: string (required, immutable)
+    //   - name: string (required)
+    //   - mode: string (required, 'regular' or 'pomodoro')
+    //   - duration: number (required, positive)
+    //   - startTime: number (required)
+    //   - endTime: number (required)
+    //   - pomodorosCompleted: number (optional)
+    //   - priority: string (required, 'High', 'Medium', 'Low', 'None')
+    //   - createdAt: number (required, immutable)
+    //
+    // ===============================================================
+    
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isDocOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.uid;
+    }
+    
+    function uidUnchanged() {
+      return !('uid' in request.resource.data) || request.resource.data.uid == request.auth.uid;
+    }
+    
+    function uidNotModified() {
+      return !('uid' in request.resource.data) || request.resource.data.uid == resource.data.uid;
+    }
+    
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+    
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+    
+    function isValidUser(data) {
+      return hasOnlyAllowedFields(['uid', 'email', 'settings', 'unlockedAchievements', 'createdAt', 'updatedAt']) &&
+             data.uid is string && data.uid.size() > 0 && data.uid.size() < 100 &&
+             data.email is string && data.email.size() > 0 && data.email.size() < 150 &&
+             data.createdAt is number &&
+             (!('updatedAt' in data) || data.updatedAt is number) &&
+             (!('settings' in data) || data.settings is map) &&
+             (!('unlockedAchievements' in data) || (data.unlockedAchievements is list && data.unlockedAchievements.size() <= 100));
+    }
+    
+    function isValidRecord(data) {
+      return hasOnlyAllowedFields(['uid', 'name', 'mode', 'duration', 'startTime', 'endTime', 'pomodorosCompleted', 'priority', 'createdAt']) &&
+             data.uid is string && data.uid.size() > 0 && data.uid.size() < 100 &&
+             data.name is string && data.name.size() <= 200 &&
+             data.mode in ['regular', 'pomodoro'] &&
+             data.duration is number && data.duration >= 0 &&
+             data.startTime is number &&
+             data.endTime is number &&
+             data.priority in ['High', 'Medium', 'Low', 'None'] &&
+             data.createdAt is number &&
+             (!('pomodorosCompleted' in data) || data.pomodorosCompleted is number);
+    }
+
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isAuthenticated() && isOwner(userId) && isValidUser(request.resource.data) && uidUnchanged();
+      allow update: if isAuthenticated() && isOwner(userId) && isValidUser(request.resource.data) && uidNotModified() && request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if isOwner(userId);
+    }
+
+    match /records/{recordId} {
+      allow read: if isAuthenticated() && resource.data.uid == request.auth.uid;
+      allow create: if isAuthenticated() && isValidRecord(request.resource.data) && uidUnchanged();
+      allow update: if isAuthenticated() && isDocOwner() && isValidRecord(request.resource.data) && uidNotModified() && request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if isDocOwner();
+    }
+  }
+}

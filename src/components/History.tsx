@@ -1,18 +1,23 @@
 import React, { useState } from 'react';
-import { useStore } from '../store';
+import { useStore, TaskPriority } from '../store';
 import { format } from 'date-fns';
-import { Trash2, Plus, X } from 'lucide-react';
+import { Trash2, Plus, X, Tag } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { useTranslation } from '../lib/i18n';
 
 export function History() {
   const { records, deleteRecord, addRecord } = useStore();
+  const { t } = useTranslation();
   const [showAddForm, setShowAddForm] = useState(false);
+  const [filterPriority, setFilterPriority] = useState<TaskPriority | 'All'>('All');
   
   // Form state
   const [name, setName] = useState('');
   const [duration, setDuration] = useState('25');
   const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [time, setTime] = useState(format(new Date(), 'HH:mm'));
+  const [priority, setPriority] = useState<TaskPriority>('None');
+  const [tagsInput, setTagsInput] = useState('');
 
   const handleAddManual = (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,6 +25,7 @@ export function History() {
     if (isNaN(durationSecs) || durationSecs <= 0) return;
 
     const startDateTime = new Date(`${date}T${time}`).getTime();
+    const tags = tagsInput.split(',').map(t => t.trim()).filter(Boolean);
     
     addRecord({
       name: name.trim() || 'Manual Entry',
@@ -27,25 +33,43 @@ export function History() {
       duration: durationSecs,
       startTime: startDateTime,
       endTime: startDateTime + (durationSecs * 1000),
+      priority,
+      tags: tags.length > 0 ? tags : undefined
     });
     
     setShowAddForm(false);
     setName('');
     setDuration('25');
+    setPriority('None');
+    setTagsInput('');
   };
 
-  const sortedRecords = [...records].sort((a, b) => b.startTime - a.startTime);
+  const filteredRecords = records.filter(r => filterPriority === 'All' || r.priority === filterPriority);
+  const sortedRecords = [...filteredRecords].sort((a, b) => b.startTime - a.startTime);
 
   return (
     <div className="p-6 space-y-6 h-full overflow-y-auto pb-20">
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-bold text-gray-800">History</h2>
-        <button
-          onClick={() => setShowAddForm(!showAddForm)}
-          className="p-2 bg-indigo-50 text-indigo-600 rounded-full hover:bg-indigo-100 transition-colors"
-        >
-          {showAddForm ? <X size={18} /> : <Plus size={18} />}
-        </button>
+        <div className="flex space-x-2">
+          <select
+            value={filterPriority}
+            onChange={(e) => setFilterPriority(e.target.value as any)}
+            className="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            <option value="All">All Priorities</option>
+            <option value="High">High</option>
+            <option value="Medium">Medium</option>
+            <option value="Low">Low</option>
+            <option value="None">None</option>
+          </select>
+          <button
+            onClick={() => setShowAddForm(!showAddForm)}
+            className="p-2 bg-indigo-50 text-indigo-600 rounded-full hover:bg-indigo-100 transition-colors"
+          >
+            {showAddForm ? <X size={18} /> : <Plus size={18} />}
+          </button>
+        </div>
       </div>
 
       {showAddForm && (
@@ -73,29 +97,54 @@ export function History() {
               />
             </div>
             <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Priority</label>
+              <select
+                value={priority}
+                onChange={(e) => setPriority(e.target.value as TaskPriority)}
+                className="w-full px-3 py-2 text-sm bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="High">High</option>
+                <option value="Medium">Medium</option>
+                <option value="Low">Low</option>
+                <option value="None">None</option>
+              </select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Date</label>
               <input
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
                 required
-                className="w-full px-3 py-2 text-sm bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-3 py-2 text-sm bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a73e8]"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Start Time</label>
+              <input
+                type="time"
+                value={time}
+                onChange={(e) => setTime(e.target.value)}
+                required
+                className="w-full px-3 py-2 text-sm bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a73e8]"
               />
             </div>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Start Time</label>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Tags (comma separated)</label>
             <input
-              type="time"
-              value={time}
-              onChange={(e) => setTime(e.target.value)}
-              required
-              className="w-full px-3 py-2 text-sm bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              type="text"
+              value={tagsInput}
+              onChange={(e) => setTagsInput(e.target.value)}
+              placeholder="e.g. work, coding, study"
+              className="w-full px-3 py-2 text-sm bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a73e8]"
             />
           </div>
           <button
             type="submit"
-            className="w-full py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors"
+            className="w-full py-2 bg-[#1a73e8] text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
           >
             Add Record
           </button>
@@ -111,7 +160,19 @@ export function History() {
           sortedRecords.map((record) => (
             <div key={record.id} className="bg-white border border-gray-100 p-4 rounded-xl shadow-sm flex justify-between items-center group">
               <div className="overflow-hidden">
-                <h4 className="font-medium text-gray-800 truncate">{record.name}</h4>
+                <div className="flex items-center space-x-2">
+                  <h4 className="font-medium text-gray-800 truncate">{record.name}</h4>
+                  {record.priority && record.priority !== 'None' && (
+                    <span className={cn(
+                      "px-1.5 py-0.5 rounded text-[10px] font-medium uppercase tracking-wider",
+                      record.priority === 'High' ? "bg-red-100 text-red-700" :
+                      record.priority === 'Medium' ? "bg-amber-100 text-amber-700" :
+                      "bg-blue-100 text-blue-700"
+                    )}>
+                      {record.priority}
+                    </span>
+                  )}
+                </div>
                 <div className="flex items-center text-xs text-gray-500 mt-1 space-x-2">
                   <span>{format(record.startTime, 'MMM d, HH:mm')}</span>
                   <span>•</span>
@@ -121,6 +182,16 @@ export function History() {
                     {record.mode}
                   </span>
                 </div>
+                {record.tags && record.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {record.tags.map((tag, idx) => (
+                      <span key={idx} className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-600">
+                        <Tag size={8} className="mr-1" />
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
               <div className="flex items-center space-x-4 flex-shrink-0 ml-4">
                 <div className="text-right">

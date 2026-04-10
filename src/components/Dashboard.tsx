@@ -53,11 +53,41 @@ export function Dashboard() {
       };
     });
 
+    // Group by priority
+    const priorityGroups = filteredRecords.reduce((acc, r) => {
+      const p = r.priority || 'None';
+      acc[p] = (acc[p] || 0) + r.duration;
+      return acc;
+    }, {} as Record<string, number>);
+
+    const priorityPieData = Object.entries(priorityGroups)
+      .map(([name, duration]: [string, any]) => ({ name, value: Math.round(duration / 60) }))
+      .sort((a, b) => b.value - a.value);
+
+    // Group by tags
+    const tagGroups = filteredRecords.reduce((acc, r) => {
+      if (r.tags && r.tags.length > 0) {
+        r.tags.forEach(tag => {
+          acc[tag] = (acc[tag] || 0) + r.duration;
+        });
+      } else {
+        acc['Untagged'] = (acc['Untagged'] || 0) + r.duration;
+      }
+      return acc;
+    }, {} as Record<string, number>);
+
+    const tagsPieData = Object.entries(tagGroups)
+      .map(([name, duration]: [string, any]) => ({ name, value: Math.round(duration / 60) }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 5);
+
     return {
       totalMinutes: Math.round(totalSeconds / 60),
       totalPomodoros,
       totalSessions,
       pieData,
+      priorityPieData,
+      tagsPieData,
       barData
     };
   }, [filteredRecords, timeRange]);
@@ -127,6 +157,92 @@ export function Dashboard() {
         {stats.pieData.length > 0 && (
           <div className="flex flex-wrap justify-center gap-3 mt-2">
             {stats.pieData.map((entry, index) => (
+              <div key={entry.name} className="flex items-center text-xs text-gray-600">
+                <div className="w-2 h-2 rounded-full mr-1.5" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
+                <span className="truncate max-w-[80px]">{entry.name}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
+        <h3 className="text-sm font-semibold text-gray-600 mb-4">Priority Distribution</h3>
+        <div className="h-48">
+          {stats.priorityPieData.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={stats.priorityPieData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={40}
+                  outerRadius={70}
+                  paddingAngle={2}
+                  dataKey="value"
+                >
+                  {stats.priorityPieData.map((entry, index) => {
+                    const color = entry.name === 'High' ? '#ef4444' : entry.name === 'Medium' ? '#f59e0b' : entry.name === 'Low' ? '#3b82f6' : '#9ca3af';
+                    return <Cell key={`cell-${index}`} fill={color} />;
+                  })}
+                </Pie>
+                <Tooltip 
+                  formatter={(value: number) => [`${value} min`, 'Duration']}
+                  contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-full flex items-center justify-center text-gray-400 text-sm">No data available</div>
+          )}
+        </div>
+        {stats.priorityPieData.length > 0 && (
+          <div className="flex flex-wrap justify-center gap-3 mt-2">
+            {stats.priorityPieData.map((entry) => {
+              const color = entry.name === 'High' ? '#ef4444' : entry.name === 'Medium' ? '#f59e0b' : entry.name === 'Low' ? '#3b82f6' : '#9ca3af';
+              return (
+                <div key={entry.name} className="flex items-center text-xs text-gray-600">
+                  <div className="w-2 h-2 rounded-full mr-1.5" style={{ backgroundColor: color }} />
+                  <span className="truncate max-w-[80px]">{entry.name}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
+        <h3 className="text-sm font-semibold text-gray-600 mb-4">Tags Distribution</h3>
+        <div className="h-48">
+          {stats.tagsPieData.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={stats.tagsPieData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={40}
+                  outerRadius={70}
+                  paddingAngle={2}
+                  dataKey="value"
+                >
+                  {stats.tagsPieData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip 
+                  formatter={(value: number) => [`${value} min`, 'Duration']}
+                  contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-full flex items-center justify-center text-gray-400 text-sm">No data available</div>
+          )}
+        </div>
+        {stats.tagsPieData.length > 0 && (
+          <div className="flex flex-wrap justify-center gap-3 mt-2">
+            {stats.tagsPieData.map((entry, index) => (
               <div key={entry.name} className="flex items-center text-xs text-gray-600">
                 <div className="w-2 h-2 rounded-full mr-1.5" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
                 <span className="truncate max-w-[80px]">{entry.name}</span>

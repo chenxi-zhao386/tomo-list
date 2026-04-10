@@ -1,0 +1,58 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "User settings and achievements",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "User ID" },
+        "email": { "type": "string", "description": "User email" },
+        "settings": {
+          "type": "object",
+          "properties": {
+            "workDuration": { "type": "number" },
+            "shortBreakDuration": { "type": "number" },
+            "longBreakDuration": { "type": "number" },
+            "longBreakInterval": { "type": "number" },
+            "soundEnabled": { "type": "boolean" },
+            "notificationsEnabled": { "type": "boolean" }
+          }
+        },
+        "unlockedAchievements": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "createdAt": { "type": "number", "description": "Timestamp" },
+        "updatedAt": { "type": "number", "description": "Timestamp" }
+      },
+      "required": ["uid", "email", "createdAt"]
+    },
+    "TaskRecord": {
+      "title": "Task Record",
+      "description": "A completed focus or pomodoro session",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Owner User ID" },
+        "name": { "type": "string", "description": "Task name" },
+        "mode": { "type": "string", "enum": ["regular", "pomodoro"] },
+        "duration": { "type": "number", "description": "Duration in seconds" },
+        "startTime": { "type": "number", "description": "Start timestamp" },
+        "endTime": { "type": "number", "description": "End timestamp" },
+        "pomodorosCompleted": { "type": "number" },
+        "priority": { "type": "string", "enum": ["High", "Medium", "Low", "None"] },
+        "createdAt": { "type": "number", "description": "Creation timestamp" }
+      },
+      "required": ["uid", "name", "mode", "duration", "startTime", "endTime", "priority", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "UserProfile" },
+      "description": "Stores user profiles and settings"
+    },
+    "/records/{recordId}": {
+      "schema": { "$ref": "TaskRecord" },
+      "description": "Stores task records for all users"
+    }
+  }
+}
